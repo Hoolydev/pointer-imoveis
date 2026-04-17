@@ -28,3 +28,4 @@ fetch.js
 !tsconfig.json
 !tsconfig.base.json
 !vercel.json
+!railway.json
