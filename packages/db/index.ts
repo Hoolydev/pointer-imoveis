@@ -2,7 +2,6 @@ import { Pool, neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
 
-// Use WebSocket only in non-edge runtimes (Node.js serverless)
 if (typeof WebSocket === "undefined") {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   neonConfig.webSocketConstructor = require("ws");
@@ -24,9 +23,21 @@ function build(): PrismaClient {
   });
 }
 
-export const prisma: PrismaClient =
-  global.__pv_prisma ?? build();
+// Lazy singleton — does NOT throw at import time if DATABASE_URL is missing.
+// Throws only when a query is actually executed.
+let _instance: PrismaClient | undefined;
 
-if (process.env.NODE_ENV !== "production") global.__pv_prisma = prisma;
+function getInstance(): PrismaClient {
+  if (_instance) return _instance;
+  _instance = global.__pv_prisma ?? build();
+  if (process.env.NODE_ENV !== "production") global.__pv_prisma = _instance;
+  return _instance;
+}
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    return (getInstance() as any)[prop];
+  },
+});
 
 export * from "@prisma/client";

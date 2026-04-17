@@ -18,7 +18,6 @@ exports.prisma = void 0;
 const serverless_1 = require("@neondatabase/serverless");
 const adapter_neon_1 = require("@prisma/adapter-neon");
 const client_1 = require("@prisma/client");
-// Use WebSocket only in non-edge runtimes (Node.js serverless)
 if (typeof WebSocket === "undefined") {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     serverless_1.neonConfig.webSocketConstructor = require("ws");
@@ -34,7 +33,20 @@ function build() {
         log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     });
 }
-exports.prisma = global.__pv_prisma ?? build();
-if (process.env.NODE_ENV !== "production")
-    global.__pv_prisma = exports.prisma;
+// Lazy singleton — does NOT throw at import time if DATABASE_URL is missing.
+// Throws only when a query is actually executed.
+let _instance;
+function getInstance() {
+    if (_instance)
+        return _instance;
+    _instance = global.__pv_prisma ?? build();
+    if (process.env.NODE_ENV !== "production")
+        global.__pv_prisma = _instance;
+    return _instance;
+}
+exports.prisma = new Proxy({}, {
+    get(_target, prop) {
+        return getInstance()[prop];
+    },
+});
 __exportStar(require("@prisma/client"), exports);
