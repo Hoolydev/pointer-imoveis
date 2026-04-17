@@ -1,5 +1,6 @@
 node_modules
 dist
+!packages/db/dist
 .next
 .env
 .env.local
@@ -26,3 +27,4 @@ fetch.js
 !turbo.json
 !tsconfig.json
 !tsconfig.base.json
+!vercel.json
