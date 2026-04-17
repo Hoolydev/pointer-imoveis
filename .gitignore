@@ -1,0 +1,28 @@
+node_modules
+dist
+.next
+.env
+.env.local
+*.log
+.vercel
+.turbo
+.DS_Store
+packages/db/generated
+
+# Large/binary files
+*.pdf
+*.xls
+*.xlsx
+*.lnk
+
+# Temp/scratch files
+.temp*.js
+test.js
+test.ts
+test4.js
+fetch.js
+*.json
+!package.json
+!turbo.json
+!tsconfig.json
+!tsconfig.base.json

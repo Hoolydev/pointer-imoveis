@@ -1,0 +1,24 @@
+{
+  "name": "pointer-veiculos",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "db:generate": "pnpm --filter @pv/db prisma:generate",
+    "db:migrate": "pnpm --filter @pv/db prisma:migrate",
+    "db:push": "pnpm --filter @pv/db prisma:push",
+    "dev:api": "pnpm --filter @pv/api dev",
+    "dev:web": "pnpm --filter @pv/web dev",
+    "build": "pnpm -r build"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18.18"
+  },
+  "dependencies": {
+    "pdf-parse": "^1.1.1"
+  }
+}

@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id               String    @id @default(cuid())
+  name             String
+  type             String    @default("blast")   // "blast" | "reactivation"
+  baseMessage      String
+  systemPrompt     String    @default("")
+  provider         String    // 'uazapi' | 'official' | 'mock'
+  delayMs          Int       @default(3000)
+  maxPerMinute     Int       @default(20)
+  status           String    @default("draft")   // draft|running|paused|done
+  variations       Json?     // string[]
+  providerConfig   Json?     // { baseUrl?, token?, instance?, phoneId? }
+  // Follow-up settings
+  mediaUrl         String?   // URL of media attached to first message
+  mediaType        String?   // "image" | "video" | "document"
+  followUpDelays     Int[]       // array of delays in hours (e.g. [2, 6, 24])
+  // Inbound (IA Receptiva) fields
+  properties       Json?     // { id, name, description, link }[]
+  extraInfo        String?   // general context outside system prompt
+  calendarEnabled  Boolean   @default(false)
+  calendarMainId   String?   // Google Calendar ID
+  brokerCalendars  Json?     // { brokerId: string, calendarId: string }[]
+  // Reactivation-only fields
+  qualifyQuestions Json?     // string[] — perguntas que a IA deve fazer
+  handoffScore     Int?      // score mínimo (0-100) para handoff automático
+  handoffMessage   String?   // msg enviada quando lead é qualificado
+  maxConvHours     Int?      // timeout da conversa em horas
+  createdAt        DateTime  @default(now())
+  messages         Message[]
+  leadLinks        CampaignLead[]
+}
+
+model Lead {
+  id              String    @id @default(cuid())
+  name            String?
+  phone           String    @unique
+  status          String    @default("new") // new|engaged|qualified|handoff|closed
+  temperature     String    @default("cold") // cold|warm|hot
+  score           Int       @default(0)
+  lastInteraction DateTime?
+  metadata        Json      @default("{}")
+  handoff         Boolean   @default(false)
+  crmClienteId    String?   // HauzApp CRM deal ID
+  activeCampaignId String?
+  brokerId        String?
+  broker          Broker?   @relation(fields: [brokerId], references: [id], onDelete: SetNull)
+  messages        Message[]
+  campaignLinks   CampaignLead[]
+  createdAt       DateTime  @default(now())
+
+  @@index([temperature])
+  @@index([handoff])
+  @@index([brokerId])
+}
+
+model Broker {
+  id           String    @id @default(cuid())
+  name         String
+  phone        String    @unique
+  crmId        String?
+  status       String    @default("active") // active|inactive
+  lastCobranca DateTime?
+  createdAt    DateTime  @default(now())
+  leads        Lead[]
+}
+
+model CampaignLead {
+  id             String   @id @default(cuid())
+  campaignId     String
+  leadId         String
+  variationIndex Int
+  enqueuedAt     DateTime @default(now())
+  campaign       Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead           Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, leadId])
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  leadId     String
+  campaignId String?
+  content    String
+  direction  String    // 'inbound' | 'outbound'
+  status     String    @default("pending") // pending|sent|failed|delivered
+  error      String?
+  providerMessageId String?
+  timestamp  DateTime  @default(now())
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, timestamp])
+  @@index([campaignId, status])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
