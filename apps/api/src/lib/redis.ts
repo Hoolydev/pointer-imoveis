@@ -8,10 +8,7 @@ declare global {
 function build(): Redis {
   const url = process.env.REDIS_URL;
   if (!url) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("REDIS_URL is required in production");
-    }
-    console.warn("[redis] REDIS_URL not set — using in-memory mock (queues disabled)");
+    console.warn("[redis] REDIS_URL not set — queues disabled (campaigns will not send)");
     // Minimal no-op proxy so BullMQ Queue/Worker instantiation doesn't crash at import time
     return new Proxy({} as Redis, {
       get(_t, prop) {

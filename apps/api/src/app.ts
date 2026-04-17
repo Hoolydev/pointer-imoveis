@@ -25,8 +25,11 @@ export function buildApp() {
     next();
   });
 
-  const uploadsDir = path.join(process.cwd(), "uploads");
-  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  // On Vercel only /tmp is writable; locally use cwd/uploads
+  const uploadsDir = process.env.VERCEL
+    ? "/tmp/uploads"
+    : path.join(process.cwd(), "uploads");
+  try { if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true }); } catch {}
   app.use("/uploads", express.static(uploadsDir));
 
   app.use(express.json({ limit: "2mb" }));

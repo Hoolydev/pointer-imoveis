@@ -17,8 +17,10 @@ import { upsertLeadsForCampaign } from "../services/lead.service";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-const UPLOADS_DIR = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const UPLOADS_DIR = process.env.VERCEL
+  ? "/tmp/uploads"
+  : path.join(process.cwd(), "uploads");
+try { if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch {}
 
 const MEDIA_MIME_TO_TYPE: Record<string, "image" | "video" | "document"> = {
   "image/jpeg": "image", "image/png": "image", "image/gif": "image", "image/webp": "image",
