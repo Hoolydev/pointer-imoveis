@@ -75,9 +75,6 @@ const TYPE_META: Record<CampaignType, {
   },
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  blast: "Disparo", reactivation: "Reaquecimento", cobranca: "Cobrança", inbound: "IA Receptiva",
-};
 
 /* ─── Small helpers ──────────────────────────────────────────── */
 function Input({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
@@ -202,7 +199,7 @@ export default function CampaignsPage() {
       name: c.name, type: c.type as CampaignType, baseMessage: c.baseMessage,
       systemPrompt: c.systemPrompt ?? "", provider: c.provider,
       providerConfig: pc ? { ...EMPTY_PC, ...pc } : { ...EMPTY_PC },
-      delayMs: c.delayMs.toString(), maxPerMinute: c.maxPerMinute.toString(),
+      delayMs: (c.delayMs ?? 3000).toString(), maxPerMinute: (c.maxPerMinute ?? 20).toString(),
       qualifyQuestions: c.qualifyQuestions ?? [...EMPTY_FORM.qualifyQuestions],
       handoffScore: c.handoffScore?.toString() ?? "70",
       handoffMessage: c.handoffMessage ?? EMPTY_FORM.handoffMessage,
@@ -245,10 +242,12 @@ export default function CampaignsPage() {
       const ownConfig = buildPC();
       const payload: Record<string, unknown> = {
         name: form.name, type: form.type, baseMessage: form.baseMessage,
-        provider: form.provider, providerConfig: ownConfig,
-        delayMs: Number(form.delayMs), maxPerMinute: Number(form.maxPerMinute),
+        provider: form.provider,
+        delayMs: Number(form.delayMs) || 3000, maxPerMinute: Number(form.maxPerMinute) || 20,
         followUpDelays: form.followUpDelays.map(Number).filter(n => !isNaN(n) && n > 0),
       };
+      // Only include providerConfig when it has actual values — schema uses .optional() not .nullable()
+      if (ownConfig) payload.providerConfig = ownConfig;
 
       if (form.type === "reactivation") {
         payload.systemPrompt = form.systemPrompt;
@@ -290,7 +289,7 @@ export default function CampaignsPage() {
       if (form.type !== "inbound" && createdId) {
         if (csvFile && mappedData.length > 0 && phoneCol) {
           const contacts = mappedData.map(row => ({ name: nameCol ? row[nameCol] : undefined, phone: row[phoneCol] }));
-          if (form.manualNumbers.length > 0) contacts.push(...form.manualNumbers.map(p => ({ phone: p })));
+          if (form.manualNumbers.length > 0) contacts.push(...form.manualNumbers.map(p => ({ name: undefined, phone: p })));
           const r = await api.post<{ upserted: number }>(`/campaigns/${createdId}/contacts`, { contacts });
           notify(`Salvo! ${r.upserted} contatos importados.`);
         } else if (csvFile) {
@@ -338,8 +337,33 @@ export default function CampaignsPage() {
     const file = csvRef.current?.files?.[0]; if (!file) return;
     setUploadingId(campaignId);
     try {
-      const fd = new FormData(); fd.append("file", file);
-      const r = await api.postForm<{ upserted: number }>(`/campaigns/${campaignId}/contacts`, fd);
+      const xlsx = await import("xlsx");
+      const wb = xlsx.read(await file.arrayBuffer(), { type: "array" });
+      const data = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" }) as any[];
+      if (data.length === 0) { notify("Nenhum contato encontrado na planilha."); return; }
+      const headers = Object.keys(data[0] as object);
+
+      // Detect name column
+      const nameCol = headers.find(h => /^nome$|^name$/i.test(h.trim()));
+
+      // Detect phone column by header name first, then by value pattern
+      const phoneHeaderRe = /telefone|celular|n[uú]mero|phone|contato|fone|whatsapp|tel\b/i;
+      let phoneCol = headers.find(h => phoneHeaderRe.test(h.trim()));
+      if (!phoneCol) {
+        // Fallback: find column whose first non-empty value looks like a phone number
+        phoneCol = headers.find(h => {
+          const sample = String((data.find((r: any) => r[h]) ?? {})[h] ?? "").replace(/\D/g, "");
+          return sample.length >= 10 && sample.length <= 15;
+        });
+      }
+      if (!phoneCol) { notify("Coluna de telefone não encontrada. Use cabeçalho: Telefone, Celular, Número, WhatsApp..."); return; }
+
+      const contacts = data.map((row: any) => ({
+        name: nameCol ? String(row[nameCol] ?? "").trim() || undefined : undefined,
+        phone: String(row[phoneCol!] ?? ""),
+      })).filter(c => c.phone);
+
+      const r = await api.post<{ upserted: number }>(`/campaigns/${campaignId}/contacts`, { contacts });
       notify(`${r.upserted} contatos importados!`); load();
     } catch (err: any) { notify("Erro: " + err.message); }
     finally { setUploadingId(null); if (csvRef.current) csvRef.current.value = ""; }
