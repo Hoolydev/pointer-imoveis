@@ -83,6 +83,9 @@ export class OfficialWhatsAppProvider implements WhatsAppProvider {
     return { id: data?.messages?.[0]?.id ?? `wa_${Date.now()}` };
   }
 
+  // Meta Cloud API doesn't support composing status — no-op to satisfy interface
+  async sendTyping(_to: string): Promise<void> {}
+
   parseInboundWebhook(payload: unknown): InboundMessage | null {
     try {
       const p = payload as any;

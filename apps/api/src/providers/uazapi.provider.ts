@@ -84,6 +84,29 @@ export class UazapiProvider implements WhatsAppProvider {
     return { id: data?.messageid ?? data?.id ?? `uaz_${Date.now()}` };
   }
 
+  async sendTyping(to: string): Promise<void> {
+    let baseUrl = this.config?.baseUrl;
+    let token = this.config?.token;
+
+    if (!baseUrl || !token) {
+      const [urlSetting, tokenSetting] = await Promise.all([
+        prisma.setting.findUnique({ where: { key: "uazapi_base_url" } }),
+        prisma.setting.findUnique({ where: { key: "uazapi_token" } }),
+      ]);
+      baseUrl = baseUrl || urlSetting?.value || process.env.UAZAPI_BASE_URL || "https://free.uazapi.com";
+      token = token || tokenSetting?.value || process.env.UAZAPI_TOKEN || "";
+    }
+
+    if (!token) return; // silently skip if not configured
+
+    const url = `${baseUrl.replace(/\/$/, "")}/send/presence`;
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token },
+      body: JSON.stringify({ number: to, presence: "composing" }),
+    }).catch(() => {}); // fire-and-forget, non-critical
+  }
+
   parseInboundWebhook(payload: unknown): InboundMessage | null {
     try {
       const p = payload as any;

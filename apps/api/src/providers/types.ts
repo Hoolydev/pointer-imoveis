@@ -25,5 +25,7 @@ export interface WhatsAppProvider {
   readonly name: string;
   sendMessage(to: string, message: string): Promise<SendResult>;
   sendMedia?(to: string, url: string, mediaType: MediaType, caption?: string): Promise<SendResult>;
+  /** Send a typing/composing presence update to simulate the bot "typing". Optional. */
+  sendTyping?(to: string): Promise<void>;
   parseInboundWebhook(payload: unknown): InboundMessage | null;
 }

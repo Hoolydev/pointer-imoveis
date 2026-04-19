@@ -35,6 +35,9 @@ model Campaign {
   handoffScore     Int?      // score mínimo (0-100) para handoff automático
   handoffMessage   String?   // msg enviada quando lead é qualificado
   maxConvHours     Int?      // timeout da conversa em horas
+  // Agent tools (Secretária v3)
+  enabledTools     Json?     // { files?: boolean, calendar?: boolean, escalation?: boolean }
+  campaignFiles    Json?     // { id, name, url, description?, type }[]
   createdAt        DateTime  @default(now())
   messages         Message[]
   leadLinks        CampaignLead[]

@@ -15,6 +15,10 @@ export class MockProvider implements WhatsAppProvider {
     return { id: `mock_media_${Date.now()}` };
   }
 
+  async sendTyping(to: string): Promise<void> {
+    logger.info({ to }, "[mock] sendTyping");
+  }
+
   parseInboundWebhook(payload: unknown): InboundMessage | null {
     const p = payload as any;
     if (!p?.from || !p?.text) return null;
