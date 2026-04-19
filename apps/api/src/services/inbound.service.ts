@@ -10,11 +10,27 @@ import type { InboundMessage } from "../providers/types";
  * 3. Fire drain endpoint for low-latency reply (fire-and-forget)
  */
 export async function handleInbound(msg: InboundMessage) {
-  // Find active inbound (IA Receptiva) campaign to auto-assign new leads
-  const inboundCampaign = await prisma.campaign.findFirst({
-    where: { type: "inbound", status: "running" },
-    orderBy: { createdAt: "desc" },
-  });
+  // Find the best running campaign to assign to leads with no active campaign.
+  // Priority 1: "inbound" (IA Receptiva) — built specifically for receptive mode.
+  // Priority 2: any running blast/reactivation with a system prompt — covers the case
+  //   where someone shares the blasted number with a third party: that new contact
+  //   gets qualified by the same AI persona as the original campaign.
+  // "cobranca" campaigns never use AI, so they're excluded.
+  const [inboundCampaign, blastCampaign] = await Promise.all([
+    prisma.campaign.findFirst({
+      where: { type: "inbound", status: "running" },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.campaign.findFirst({
+      where: {
+        status: "running",
+        type: { in: ["blast", "reactivation"] },
+        NOT: { systemPrompt: "" },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  const fallbackCampaign = inboundCampaign ?? blastCampaign;
 
   const existing = await prisma.lead.findUnique({ where: { phone: msg.from } });
 
@@ -23,9 +39,9 @@ export async function handleInbound(msg: InboundMessage) {
         where: { phone: msg.from },
         data: {
           lastInteraction: new Date(),
-          // Assign inbound campaign only if the lead has no active campaign yet
-          ...(!existing.activeCampaignId && inboundCampaign
-            ? { activeCampaignId: inboundCampaign.id }
+          // Assign campaign only if the lead has no active campaign yet
+          ...(!existing.activeCampaignId && fallbackCampaign
+            ? { activeCampaignId: fallbackCampaign.id }
             : {}),
         },
       })
@@ -33,7 +49,7 @@ export async function handleInbound(msg: InboundMessage) {
         data: {
           phone: msg.from,
           status: "new",
-          activeCampaignId: inboundCampaign?.id ?? undefined,
+          activeCampaignId: fallbackCampaign?.id ?? undefined,
         },
       });
 
