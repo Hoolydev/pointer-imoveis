@@ -37,14 +37,15 @@ const EXTRACT_SYSTEM = `You are an analyst. Read the conversation and extract qu
 
 Score 0-100:
 - 0-30 cold (low engagement, vague)
-- 31-70 warm (engaged, asking questions)
-- 71-100 hot (clear intent, asking price/availability/scheduling)
+- 31-70 warm (engaged, asking questions or providing partial info)
+- 71-89 hot (clear intent, but qualification is still in progress / missing details)
+- 90-100 fully qualified (clear intent AND all qualification questions or necessary details have been collected)
 
 Return ONLY JSON:
 {"name":"","interest":"","budget":"","timeline":"","temperature":"cold|warm|hot","score":0}`;
 
 export interface AgentTurn {
-  reply: string | null; // null when handoff triggered
+  reply: string | null; // null when handoff triggered by keyword
   extraction: Extraction;
   handoff: boolean;
   handoffReason?: string;
@@ -146,10 +147,10 @@ export async function runAgentTurn(params: {
     logger.warn({ err }, "agent: extraction failed");
   }
 
-  const handoff = extraction.temperature === "hot" || extraction.score >= 80;
+  const handoff = extraction.score >= 90;
 
   return {
-    reply: handoff ? null : reply,
+    reply: reply, // Always return the final reply before handoff, so we don't brutally ignore the user.
     extraction,
     handoff,
     handoffReason: handoff ? `score=${extraction.score} temp=${extraction.temperature}` : undefined,
