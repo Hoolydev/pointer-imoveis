@@ -169,7 +169,7 @@ export async function campaignProcessor(job: Job<CampaignJobData>) {
         await campaignQueue.add(
           `followup-${campaignId}-${leadId}-${followUpIndex}`,
           { leadId, campaignId, variationIndex: 0, type: "followup", followUpIndex },
-          { delay: delayMs, attempts: 3, backoff: { type: "exponential", delay: 5000 } }
+          { jobId: `followup-${campaignId}-${leadId}-${followUpIndex}`, delay: delayMs, attempts: 3, backoff: { type: "exponential", delay: 5000 } }
         );
         logger.info({ leadId, delayHours: campaign.followUpDelays[fi], followUpIndex }, "Scheduled follow-up");
       }

@@ -9,6 +9,7 @@ import webhooksRouter from "./routes/webhooks";
 import statsRouter from "./routes/stats";
 import brokersRouter from "./routes/brokers";
 import settingsRouter from "./routes/settings";
+import debugRouter from "./routes/debug";
 import cronDrainHandler from "../api/cron/drain";
 
 export function buildApp() {
@@ -52,6 +53,7 @@ export function buildApp() {
   app.use("/stats", statsRouter);
   app.use("/brokers", brokersRouter);
   app.use("/settings", settingsRouter);
+  app.use("/debug", debugRouter);
 
   // Not found
   app.use((_req, res) => res.status(404).json({ error: "not found" }));

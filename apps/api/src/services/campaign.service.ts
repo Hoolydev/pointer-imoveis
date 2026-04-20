@@ -149,6 +149,7 @@ export async function startCampaign(campaignId: string) {
       `send-${campaignId}-${link.leadId}`,
       { leadId: link.leadId, campaignId, variationIndex: pickVariationIndex(i, variations.length) },
       {
+        jobId: `send-${campaignId}-${link.leadId}`,
         delay,
         attempts: 3,
         backoff: { type: "exponential", delay: 5000 },

@@ -65,6 +65,7 @@ export async function handleInbound(msg: InboundMessage) {
       mediaFileName: msg.mediaFileName,
     },
     {
+      jobId: `reply-${msg.messageId}`,
       attempts: 3,
       backoff: { type: "exponential", delay: 3000 },
       removeOnComplete: 50,
