@@ -159,17 +159,20 @@ export async function campaignProcessor(job: Job<CampaignJobData>) {
       }
     }
 
-    // Queue next follow-up if applicable
-    if (campaign.followUpDelays && campaign.followUpDelays.length > followUpIndex) {
-      const hoursToWait = campaign.followUpDelays[followUpIndex];
-      const nextFollowUp = followUpIndex + 1;
-      const delayMs = hoursToWait * 60 * 60 * 1000;
-      await campaignQueue.add(
-        `followup-${leadId}-${nextFollowUp}`,
-        { leadId, campaignId, variationIndex: 0, type: "followup", followUpIndex: nextFollowUp },
-        { delay: delayMs, attempts: 3, backoff: { type: "exponential", delay: 5000 } }
-      );
-      logger.info({ leadId, delayHour: hoursToWait, nextFollowUp }, "Scheduled follow-up");
+    // Queue ALL follow-ups at blast time with absolute delays.
+    // e.g. followUpDelays=[2,6,24] means 2h, 6h, 24h AFTER the first blast message.
+    // Only queue from the initial blast (followUpIndex === 0), not from within follow-ups.
+    if (type !== "followup" && campaign.followUpDelays && campaign.followUpDelays.length > 0) {
+      for (let fi = 0; fi < campaign.followUpDelays.length; fi++) {
+        const delayMs = campaign.followUpDelays[fi] * 60 * 60 * 1000;
+        const followUpIndex = fi + 1;
+        await campaignQueue.add(
+          `followup-${campaignId}-${leadId}-${followUpIndex}`,
+          { leadId, campaignId, variationIndex: 0, type: "followup", followUpIndex },
+          { delay: delayMs, attempts: 3, backoff: { type: "exponential", delay: 5000 } }
+        );
+        logger.info({ leadId, delayHours: campaign.followUpDelays[fi], followUpIndex }, "Scheduled follow-up");
+      }
     }
   } catch (err: any) {
     await prisma.message.update({

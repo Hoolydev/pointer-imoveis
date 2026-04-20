@@ -184,7 +184,12 @@ router.post("/:id/upload-media", mediaUpload.single("file"), async (req, res, ne
   try {
     if (!req.file) return res.status(400).json({ error: "No valid media file provided." });
     const mediaType = MEDIA_MIME_TO_TYPE[req.file.mimetype];
-    const apiBase = process.env.API_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3001}`;
+    // Must use the public URL so external providers (UazAPI, etc.) can fetch the file.
+    // PUBLIC_BASE_URL is the Railway/Vercel deployment URL set as env var.
+    const apiBase = (process.env.PUBLIC_BASE_URL ?? process.env.API_BASE_URL ?? "").replace(/\/$/, "");
+    if (!apiBase) {
+      return res.status(400).json({ error: "PUBLIC_BASE_URL env var not set — cannot generate a public media URL." });
+    }
     const mediaUrl = `${apiBase}/uploads/${req.file.filename}`;
     await prisma.campaign.update({
       where: { id: req.params.id },

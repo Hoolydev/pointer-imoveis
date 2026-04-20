@@ -88,8 +88,16 @@ export async function addNegocio(params: {
     negocioTemperature: params.temperature ?? 0,
     ...(params.apelido ? { negocioApelido: params.apelido } : {}),
   });
+  // Log full response so we can see the exact field name returned by HauzHub
+  logger.info({ response: data?.response, details: data?.details, phone: params.phone }, "CRM: addNegocio response");
   if (data?.response === "success") {
-    const id = data.details?.clienteID ?? data.details?.id ?? null;
+    // HauzHub may return clienteID, id, negocioID or similar — try all common field names
+    const id =
+      data.details?.clienteID ??
+      data.details?.negocioID ??
+      data.details?.id ??
+      data.details?.ID ??
+      null;
     logger.info({ crmClienteId: id, phone: params.phone }, "CRM: negócio criado");
     return id ? String(id) : null;
   }

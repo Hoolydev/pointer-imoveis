@@ -128,12 +128,15 @@ export async function startCampaign(campaignId: string) {
   const variations = (campaign.variations as string[] | null) ?? [campaign.baseMessage];
   const jitter = (delay: number) => delay * (0.8 + Math.random() * 0.4); // ±20%
 
+  let queued = 0;
   for (let i = 0; i < links.length; i++) {
     const link = links[i];
-    // Skip leads already messaged in last 24h (dedup guard)
+    // Skip leads already messaged by THIS campaign in last 24h (per-campaign dedup).
+    // Scoping to campaignId ensures re-running a campaign after edits works normally.
     const recent = await prisma.message.findFirst({
       where: {
         leadId: link.leadId,
+        campaignId,
         direction: "outbound",
         status: "sent",
         timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
@@ -143,7 +146,7 @@ export async function startCampaign(campaignId: string) {
 
     const delay = Math.round(jitter(campaign.delayMs) * i);
     await campaignQueue.add(
-      `send-${link.leadId}`,
+      `send-${campaignId}-${link.leadId}`,
       { leadId: link.leadId, campaignId, variationIndex: pickVariationIndex(i, variations.length) },
       {
         delay,
@@ -153,10 +156,11 @@ export async function startCampaign(campaignId: string) {
         removeOnFail: 200,
       }
     );
+    queued++;
   }
 
-  logger.info({ campaignId, jobsQueued: links.length }, "campaign started");
-  return { queued: links.length };
+  logger.info({ campaignId, queued, total: links.length }, "campaign started");
+  return { queued };
 }
 
 export async function pauseCampaign(campaignId: string) {
