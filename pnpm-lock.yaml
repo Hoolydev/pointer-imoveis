@@ -26,6 +26,18 @@ importers:
       '@pv/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/multer':
+        specifier: ^1.4.12
+        version: 1.4.13
+      '@types/node':
+        specifier: ^20.16.5
+        version: 20.19.39
+      '@types/papaparse':
+        specifier: ^5.3.14
+        version: 5.5.2
       bullmq:
         specifier: ^5.20.0
         version: 5.73.5
@@ -53,31 +65,18 @@ importers:
       pino:
         specifier: ^9.4.0
         version: 9.14.0
-      xlsx:
-        specifier: ^0.18.5
-        version: 0.18.5
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-    devDependencies:
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.25
-      '@types/multer':
-        specifier: ^1.4.12
-        version: 1.4.13
-      '@types/node':
-        specifier: ^20.16.5
-        version: 20.19.39
-      '@types/papaparse':
-        specifier: ^5.3.14
-        version: 5.5.2
       tsx:
         specifier: ^4.19.1
         version: 4.21.0
       typescript:
         specifier: ^5.6.2
         version: 5.9.3
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
 
   apps/web:
     dependencies:
