@@ -19,6 +19,10 @@ const MAX_JOBS = 60;        // safety cap per invocation
  * Self-chain: if more jobs remain and time budget allows, fires itself again.
  */
 export default async function handler(req: Request, res: Response) {
+  if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
+    return res.status(200).json({ ok: true, message: "Ignored outside Vercel, persistent workers are handling queues." });
+  }
+
   if (req.method === "GET") {
     // Vercel cron sends GET; real invocations can also be POST for testing
   }

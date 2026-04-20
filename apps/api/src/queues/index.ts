@@ -36,6 +36,6 @@ export function createWorker<T>(name: string, processor: Processor<T>, opts: { r
     limiter: opts.rateMaxPerMin
       ? { max: opts.rateMaxPerMin, duration: 60_000 }
       : undefined,
-    autorun: false, // we control via worker.run() in drain
+    autorun: process.env.VERCEL ? false : true,
   });
 }
