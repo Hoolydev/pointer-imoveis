@@ -7,19 +7,16 @@ const router = Router();
 // GET /debug — config health + queue stats + recent failures
 router.get("/", async (_req, res, next) => {
   try {
-    // Config checks
+    // Infra-level config (not provider — provider comes from each campaign)
     const hauzChaveSetting = await prisma.setting.findUnique({ where: { key: "hauz_chave" } }).catch(() => null);
     const hauzChave = hauzChaveSetting?.value || process.env.HAUZ_CHAVE || null;
 
     const config = {
       openai_key: !!process.env.OPENAI_API_KEY,
       hauz_chave: hauzChave ? `${hauzChave.slice(0, 8)}…` : null,
-      uazapi_token: !!(process.env.UAZAPI_TOKEN || process.env.WHATSAPP_TOKEN),
-      uazapi_url: process.env.UAZAPI_BASE_URL || process.env.WHATSAPP_BASE_URL || null,
       public_base_url: process.env.PUBLIC_BASE_URL || null,
       redis_url: !!process.env.REDIS_URL,
       database_url: !!process.env.DATABASE_URL,
-      provider: process.env.WHATSAPP_PROVIDER || "uazapi",
     };
 
     // Queue stats
@@ -84,14 +81,15 @@ router.get("/", async (_req, res, next) => {
       })),
     ].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0)).slice(0, 20);
 
-    // DB sanity
-    const [leadCount, campaignCount, runningCampaigns] = await Promise.all([
+    // Running campaigns with their per-campaign provider config
+    const runningCampaigns = await prisma.campaign.findMany({
+      where: { status: "running" },
+      select: { id: true, name: true, type: true, provider: true, providerConfig: true, systemPrompt: true },
+    });
+
+    const [leadCount, campaignCount] = await Promise.all([
       prisma.lead.count(),
       prisma.campaign.count(),
-      prisma.campaign.findMany({
-        where: { status: "running" },
-        select: { id: true, name: true, type: true, provider: true, systemPrompt: true },
-      }),
     ]);
 
     res.json({
@@ -99,13 +97,22 @@ router.get("/", async (_req, res, next) => {
       config,
       queues,
       db: { leads: leadCount, campaigns: campaignCount },
-      running_campaigns: runningCampaigns.map((c) => ({
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        provider: c.provider,
-        has_system_prompt: !!(c.systemPrompt?.trim()),
-      })),
+      running_campaigns: runningCampaigns.map((c) => {
+        const pc = c.providerConfig as Record<string, any> | null;
+        return {
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          provider: c.provider,
+          provider_config: {
+            baseUrl: pc?.baseUrl || null,
+            token: pc?.token ? `${String(pc.token).slice(0, 8)}…` : null,
+            instance: pc?.instance || null,
+            phoneId: pc?.phoneId || null,
+          },
+          has_system_prompt: !!(c.systemPrompt?.trim()),
+        };
+      }),
       recent_failures: failures,
     });
   } catch (err) {
