@@ -79,15 +79,27 @@ export async function campaignProcessor(job: Job<CampaignJobData>) {
   const providerConfig = campaign.providerConfig as ProviderConfig | null;
   const provider = getProvider(campaign.provider, providerConfig ?? undefined);
 
-  const msg = await prisma.message.create({
-    data: {
-      leadId,
-      campaignId,
-      content: message,
-      direction: "outbound",
-      status: "pending",
-    },
+  let msg = await prisma.message.findFirst({
+    where: { leadId, campaignId, content: message, direction: "outbound" },
+    orderBy: { timestamp: "desc" },
   });
+
+  if (!msg || (msg.status === "sent" || msg.status === "delivered" || msg.status === "read")) {
+    msg = await prisma.message.create({
+      data: {
+        leadId,
+        campaignId,
+        content: message,
+        direction: "outbound",
+        status: "pending",
+      },
+    });
+  } else {
+    msg = await prisma.message.update({
+      where: { id: msg.id },
+      data: { status: "pending", error: null },
+    });
+  }
 
   try {
     const mediaUrl = (campaign as any).mediaUrl as string | null;
@@ -179,6 +191,14 @@ export async function campaignProcessor(job: Job<CampaignJobData>) {
       where: { id: msg.id },
       data: { status: "failed", error: err?.message?.slice(0, 255) },
     });
+    
+    // Auto-preserve the queue on fatal provider disconnects or unauthorized
+    const errMsg = String(err?.message || "").toLowerCase();
+    if (errMsg.includes("whatsapp disconnected") || errMsg.includes("invalid token") || errMsg.includes("not allowed")) {
+      logger.error({ err, campaignId }, "FATAL API ERROR: Pausing campaign queue to preserve remaining leads");
+      await campaignQueue.pause();
+    }
+
     throw err; // BullMQ will retry
   }
 }
