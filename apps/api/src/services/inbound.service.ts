@@ -54,7 +54,7 @@ export async function handleInbound(msg: InboundMessage) {
       });
 
   await inboundQueue.add(
-    `reply-${msg.messageId}`,
+    `reply-${msg.messageId.replace(/:/g, '-')}`,
     {
       leadId: lead.id,
       inboundText: msg.text,
@@ -65,7 +65,7 @@ export async function handleInbound(msg: InboundMessage) {
       mediaFileName: msg.mediaFileName,
     },
     {
-      jobId: `reply-${msg.messageId}`,
+      jobId: `reply-${msg.messageId.replace(/:/g, '-')}`,
       attempts: 3,
       backoff: { type: "exponential", delay: 3000 },
       removeOnComplete: 50,
